@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>습관 보상 시스템</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="습관 보상">
+<meta name="theme-color" content="#7ea83a">
+<link rel="manifest" id="manifestLink">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+:root{
+  --av50:#f7f9f0;--av100:#eaf0d5;--av200:#d4e3a8;--av300:#b8d07a;
+  --av400:#9cbd52;--av500:#7ea83a;--av600:#638630;--av700:#4a6424;
+  --g50:#f9fafb;--g100:#f3f4f6;--g200:#e5e7eb;--g300:#d1d5db;
+  --g400:#9ca3af;--g500:#6b7280;--g700:#374151;--g900:#111827;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--av50);color:var(--g900);min-height:100vh}
+.app{padding:1.25rem;max-width:720px;margin:0 auto}
+.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px}
+.top-bar h1{font-size:19px;font-weight:800;color:var(--av700);letter-spacing:-0.3px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:10px;border:1.5px solid var(--av200);background:#fff;font-size:13px;font-weight:600;color:var(--g700);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:all 0.15s}
+.btn:hover{background:var(--av50)}
+.btn:active{transform:scale(0.97)}
+.btn-green{background:var(--av500);color:#fff;border-color:var(--av500)}
+.btn-green:hover{background:var(--av600);border-color:var(--av600)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.tabs{display:flex;margin-bottom:1rem;border:1.5px solid var(--av200);border-radius:10px;overflow:hidden;width:100%;background:#fff}
+.tab-btn{flex:1;padding:9px;font-size:13px;font-weight:600;border:none;background:transparent;color:var(--g400);cursor:pointer;font-family:inherit;transition:all 0.15s}
+.tab-btn.active{background:var(--av100);color:var(--av700)}
+.tab-badge{display:inline-block;background:var(--av500);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:4px;vertical-align:middle}
+.goals-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.goal-card{background:#fff;border:1.5px solid var(--av100);border-radius:14px;padding:1rem 1.1rem;transition:box-shadow 0.15s;border-top-width:4px}
+.goal-card:hover{box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+.goal-card.expired{opacity:0.55}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
+.card-title{font-size:14px;font-weight:700;color:var(--g900);line-height:1.4;flex:1;padding-right:6px}
+.card-actions{display:flex;gap:2px;flex-shrink:0}
+.icon-btn{background:none;border:none;cursor:pointer;color:var(--g300);font-size:15px;padding:3px 5px;border-radius:6px;transition:all 0.15s}
+.icon-btn:hover{color:var(--av600);background:var(--av100)}
+.icon-btn.del:hover{color:#ef4444;background:#fef2f2}
+.meta-row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px}
+.badge-active{background:var(--av100);color:var(--av700)}
+.badge-done{background:#d1fae5;color:#065f46}
+.badge-expired{background:#fef2f2;color:#991b1b}
+.badge-check{background:#ede9fe;color:#5b21b6}
+.dl-text{font-size:11px;color:var(--g400);font-weight:500}
+.dl-warn{color:#d97706;font-weight:700}
+.reward-line{font-size:12px;color:var(--g400);margin-bottom:4px;font-weight:500}
+.prog-text{font-size:12px;color:var(--g400);margin-bottom:4px;font-weight:500}
+.prog-bg{height:5px;background:var(--av100);border-radius:3px;margin-bottom:10px}
+.prog-fill{height:5px;border-radius:3px;transition:width 0.4s}
+.stickers{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.sticker{width:46px;height:46px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;border:1.5px solid var(--av100);transition:all 0.2s;flex-shrink:0}
+.sticker.off{background:var(--av50)}
+.sticker .s-emoji{font-size:14px;line-height:1;display:block;margin-bottom:0}
+.sticker .s-date{font-size:7px;font-weight:700;color:var(--g500);line-height:1;margin-top:3px;text-align:center;white-space:nowrap}
+.sticker.off .s-date{display:none}
+.checklist{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.chk-item{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;border:1.5px solid var(--av100);background:var(--av50);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all 0.15s}
+.chk-item:active{background:var(--av100)}
+.chk-item.checked .chk-label{color:var(--g400);text-decoration:line-through}
+.chk-box{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--av300);background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700;transition:all 0.15s}
+.chk-label{font-size:13px;color:var(--g900);line-height:1.3;font-weight:500}
+.stamp-btn{width:100%;padding:9px;border-radius:10px;border:1.5px solid var(--av200);background:var(--av50);font-size:13px;font-weight:600;color:var(--av700);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:all 0.15s}
+.stamp-btn:hover:not(:disabled){background:var(--av100)}
+.stamp-btn:active:not(:disabled){transform:scale(0.98)}
+.stamp-btn:disabled{opacity:0.4;cursor:not-allowed}
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--g400);font-size:14px;line-height:1.9;font-weight:500}
+.empty-state .big{font-size:36px;display:block;margin-bottom:8px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:flex-end;justify-content:center;z-index:100}
+@media(min-width:500px){.modal-bg{align-items:center}}
+.modal{background:#fff;border-radius:20px 20px 0 0;padding:1.25rem 1.25rem 2rem;width:100%;max-height:92vh;overflow-y:auto}
+@media(min-width:500px){.modal{border-radius:16px;width:390px;max-height:88vh;padding-bottom:1.25rem}}
+.modal h2{font-size:16px;font-weight:800;margin-bottom:1rem;color:var(--g900)}
+.drag-handle{width:36px;height:4px;background:var(--g200);border-radius:2px;margin:0 auto 14px}
+.field{margin-bottom:11px}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--g500);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;border-radius:10px;border:1.5px solid var(--av200);padding:9px 10px;font-size:14px;font-family:inherit;font-weight:500;background:#fff;color:var(--g900);-webkit-appearance:none;outline:none;transition:border-color 0.15s}
+.field input:focus,.field textarea:focus{border-color:var(--av400)}
+.field textarea{resize:vertical;min-height:80px;line-height:1.6}
+.type-toggle{display:flex;border:1.5px solid var(--av200);border-radius:10px;overflow:hidden;margin-bottom:11px;background:#fff}
+.type-btn{flex:1;padding:9px;font-size:13px;font-weight:600;border:none;background:transparent;color:var(--g400);cursor:pointer;font-family:inherit;transition:all 0.15s}
+.type-btn.active{background:var(--av100);color:var(--av700)}
+.emoji-input-row{display:flex;align-items:center;gap:8px}
+.emoji-preview{width:42px;height:42px;border-radius:10px;border:1.5px solid var(--av200);background:var(--av50);font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.emoji-grid{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.emoji-opt{width:32px;height:32px;border-radius:8px;border:1.5px solid var(--av100);background:var(--av50);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+.emoji-opt.sel{border-color:var(--av400);background:var(--av100)}
+.color-swatches{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+.color-swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;transition:transform 0.15s;border:2px solid transparent}
+.color-swatch.sel{border-color:var(--g900);transform:scale(1.2)}
+.hint{font-size:11px;color:var(--g400);margin-top:5px;margin-bottom:4px;font-weight:500}
+.auto-row{display:flex;gap:5px;align-items:center}
+.auto-row input{padding:8px;font-size:13px}
+.auto-row span{color:var(--g400);font-size:13px;white-space:nowrap;flex-shrink:0}
+.modal-actions{display:flex;gap:8px;margin-top:1rem}
+.btn-primary{flex:1;padding:11px;border-radius:10px;border:none;background:var(--av500);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:background 0.15s}
+.btn-primary:hover{background:var(--av600)}
+.btn-cancel{flex:1;padding:11px;border-radius:10px;border:1.5px solid var(--av200);background:#fff;color:var(--g500);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-cancel:hover{background:var(--av50)}
+.coupon-overlay{position:fixed;inset:0;z-index:300;pointer-events:none;overflow:hidden}
+.confetti-piece{position:absolute;width:8px;height:8px;border-radius:2px;animation:confettiFall linear forwards}
+@keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+.coupon-card-anim{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:310;pointer-events:none;animation:couponPop 2.8s ease forwards}
+@keyframes couponPop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.3) rotate(-8deg)}
+  15%{opacity:1;transform:translate(-50%,-50%) scale(1.08) rotate(2deg)}
+  25%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}
+  70%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0deg)}
+  100%{opacity:0;transform:translate(-50%,-60%) scale(0.95)}
+}
+.coupon-card-inner{background:#fff;border-radius:18px;width:260px;box-shadow:0 24px 64px rgba(0,0,0,0.22);overflow:hidden;border:2px solid var(--av100)}
+.coupon-top{padding:1.25rem;text-align:center;color:#fff;position:relative}
+.coupon-stamp{position:absolute;top:10px;right:10px;width:44px;height:44px;border-radius:50%;border:2.5px solid rgba(255,255,255,0.6);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:rgba(255,255,255,0.95);transform:rotate(-15deg);text-align:center;line-height:1.2}
+.ct-label{font-size:10px;opacity:0.85;letter-spacing:1.5px;margin-bottom:4px;font-weight:700}
+.ct-emoji{font-size:40px;display:block;margin-bottom:6px}
+.ct-title{font-size:14px;font-weight:800;line-height:1.3}
+.coupon-divider{display:flex;align-items:center;background:#fff;padding:0 12px}
+.coupon-notch-l{width:14px;height:14px;border-radius:50%;background:var(--av50);border:1.5px solid var(--av100);margin-left:-20px;flex-shrink:0}
+.coupon-notch-r{width:14px;height:14px;border-radius:50%;background:var(--av50);border:1.5px solid var(--av100);margin-right:-20px;flex-shrink:0;margin-left:auto}
+.coupon-dashed{flex:1;border-top:1.5px dashed var(--av200);margin:8px 6px}
+.coupon-bottom{padding:0.9rem 1.25rem;text-align:center;background:#fff}
+.cb-reward{font-size:15px;font-weight:800;color:var(--g900);margin-bottom:4px}
+.cb-issued{font-size:11px;color:var(--g400);font-weight:500}
+.vault-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px}
+.vault-coupon{background:#fff;border-radius:14px;overflow:hidden;border:1.5px solid var(--av100);cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;-webkit-tap-highlight-color:transparent}
+.vault-coupon:hover{box-shadow:0 4px 16px rgba(0,0,0,0.1)}
+.vault-coupon:active{transform:scale(0.97)}
+.vc-top{padding:0.8rem 1rem;text-align:center;position:relative}
+.vc-emoji{font-size:28px;display:block;margin-bottom:4px}
+.vc-name{font-size:11px;color:rgba(255,255,255,0.95);font-weight:700;line-height:1.3}
+.vc-name-gray{font-size:11px;color:var(--g500);font-weight:700;line-height:1.3}
+.vc-divider{height:1px;background:var(--av100);position:relative;overflow:visible}
+.vc-divider::before,.vc-divider::after{content:'';position:absolute;top:-7px;width:14px;height:14px;border-radius:50%;background:var(--av50)}
+.vc-divider::before{left:-7px}
+.vc-divider::after{right:-7px}
+.vc-bottom{padding:0.6rem 1rem;text-align:center;background:#fff}
+.vc-reward{font-size:12px;font-weight:700;color:var(--g900);margin-bottom:2px;line-height:1.3}
+.vc-reward-gray{font-size:12px;font-weight:700;color:var(--g400);margin-bottom:2px;line-height:1.3}
+.vc-date{font-size:10px;color:var(--g400);font-weight:500}
+.vc-used-badge{position:absolute;top:6px;right:6px;font-size:9px;font-weight:800;color:var(--g500);background:rgba(0,0,0,0.1);border-radius:4px;padding:2px 5px}
+.coupon-detail{background:#fff;border-radius:20px 20px 0 0;padding:1.5rem 1.25rem 2rem;width:100%;max-height:65vh;overflow-y:auto;text-align:center}
+@media(min-width:500px){.coupon-detail{border-radius:16px;width:320px;max-height:80vh}}
+.cd-emoji{font-size:50px;display:block;margin-bottom:10px}
+.cd-name{font-size:13px;color:var(--g400);margin-bottom:4px;font-weight:600}
+.cd-reward{font-size:20px;font-weight:800;color:var(--g900);margin-bottom:8px}
+.cd-date{font-size:12px;color:var(--g400);margin-bottom:1.5rem;font-weight:500}
+.cd-actions{display:flex;gap:8px}
+.btn-use{flex:1;padding:11px;border-radius:10px;border:none;background:var(--av500);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:background 0.15s}
+.btn-use:hover{background:var(--av600)}
+.btn-use.used{background:var(--g100);color:var(--g400);cursor:default;pointer-events:none}
+.btn-del{padding:11px 14px;border-radius:10px;border:1.5px solid #fecaca;background:#fff;color:#ef4444;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-del:hover{background:#fef2f2}
+.install-banner{display:none;background:var(--av100);border:1.5px solid var(--av200);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--av700);align-items:center;gap:10px;font-weight:500}
+.ib-text{flex:1;line-height:1.5}
+.ib-close{background:none;border:none;font-size:16px;cursor:pointer;color:var(--av600);padding:2px 6px;flex-shrink:0}
+.section-label{font-size:12px;color:var(--g400);font-weight:700;margin:16px 0 8px;letter-spacing:0.3px}
+.cat-bar{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:1rem;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.cat-bar::-webkit-scrollbar{display:none}
+.cat-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;border:1.5px solid var(--av200);background:#fff;font-size:12px;font-weight:600;color:var(--g500);cursor:pointer;white-space:nowrap;transition:all 0.15s;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.cat-chip:hover{background:var(--av50)}
+.cat-chip.active{background:var(--av500);color:#fff;border-color:var(--av500)}
+.cat-chip .cat-count{font-size:10px;opacity:0.8}
+.cat-manage-btn{display:inline-flex;align-items:center;padding:5px 10px;border-radius:20px;border:1.5px dashed var(--av200);background:transparent;font-size:12px;font-weight:600;color:var(--g400);cursor:pointer;white-space:nowrap;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.cat-manage-btn:hover{border-color:var(--av400);color:var(--av600)}
+.cat-modal{background:#fff;border-radius:20px 20px 0 0;padding:1.25rem 1.25rem 2rem;width:100%;max-height:80vh;overflow-y:auto}
+@media(min-width:500px){.cat-modal{border-radius:16px;width:360px}}
+.cat-list{display:flex;flex-direction:column;gap:6px;margin-bottom:1rem}
+.cat-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;border:1.5px solid var(--av100);background:var(--av50)}
+.cat-item-name{flex:1;font-size:14px;font-weight:600;color:var(--g900)}
+.cat-item-count{font-size:11px;color:var(--g400);font-weight:500}
+.cat-item-del{background:none;border:none;cursor:pointer;color:var(--g300);font-size:15px;padding:2px 5px;border-radius:6px}
+.cat-item-del:hover{color:#ef4444;background:#fef2f2}
+.cat-add-row{display:flex;gap:8px}
+.cat-add-row input{flex:1;border-radius:10px;border:1.5px solid var(--av200);padding:8px 10px;font-size:14px;font-family:inherit;font-weight:500;background:#fff;color:var(--g900);outline:none}
+.cat-add-row input:focus{border-color:var(--av400)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top-bar">
+    <h1>🌿 습관 보상 시스템</h1>
+    <button class="btn btn-green" onclick="openModal()">＋ 목표 추가</button>
+  </div>
+  <div class="install-banner" id="installBanner">
+    <span style="font-size:20px;flex-shrink:0">📲</span>
+    <div class="ib-text" id="installText">홈 화면에 추가하면 앱처럼 바로 열 수 있어요!</div>
+    <button class="ib-close" onclick="dismissBanner()">✕</button>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" id="tabGoals" onclick="switchTab('goals')">🎯 목표</button>
+    <button class="tab-btn" id="tabVault" onclick="switchTab('vault')">🎫 쿠폰 보관함 <span class="tab-badge" id="vaultBadge" style="display:none">0</span></button>
+  </div>
+  <div id="catBar" class="cat-bar" style="display:flex"></div>
+  <div id="mainContent"></div>
+</div>
+
+<div class="coupon-overlay" id="confettiOverlay"></div>
+<div class="coupon-card-anim" id="couponAnim" style="display:none">
+  <div class="coupon-card-inner">
+    <div class="coupon-top" id="couponAnimTop">
+      <div class="coupon-stamp">쿠폰<br>발급!</div>
+      <span class="ct-label">REWARD COUPON</span>
+      <span class="ct-emoji" id="couponAnimEmoji">🎉</span>
+      <div class="ct-title" id="couponAnimName"></div>
+    </div>
+    <div class="coupon-divider">
+      <div class="coupon-notch-l"></div>
+      <div class="coupon-dashed"></div>
+      <div class="coupon-notch-r"></div>
+    </div>
+    <div class="coupon-bottom">
+      <div class="cb-reward" id="couponAnimReward"></div>
+      <div class="cb-issued" id="couponAnimDate"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="drag-handle"></div>
+    <h2 id="modalTitle">새 목표 만들기</h2>
+    <div style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:5px">목표 타입</div>
+    <div class="type-toggle">
+      <button class="type-btn active" id="typeCount" onclick="setType('count')">🔢 횟수형</button>
+      <button class="type-btn" id="typeList" onclick="setType('list')">✅ 체크리스트형</button>
+    </div>
+    <div class="field"><label>목표 이름</label><input type="text" id="fName" placeholder="예: 강의 완강하기" maxlength="30"></div>
+    <div id="countSection">
+      <div class="field"><label>목표 횟수</label><input type="number" id="fCount" min="1" max="100" value="10"></div>
+      <div class="field">
+        <label>달성 스티커 이모지</label>
+        <div class="emoji-input-row">
+          <div class="emoji-preview" id="emojiPreview" onclick="toggleEmojiGrid()">⭐</div>
+          <span style="font-size:12px;color:#9ca3af;font-weight:500">← 탭해서 고를 수 있어요!</span>
+        </div>
+        <div class="emoji-grid" id="emojiGrid" style="display:none"></div>
+      </div>
+    </div>
+    <div id="listSection" style="display:none">
+      <div class="field">
+        <label>항목 직접 입력 <span style="color:#bbb;font-weight:400">(한 줄에 하나씩)</span></label>
+        <textarea id="fItems" placeholder="1강&#10;2강&#10;3강&#10;4강&#10;5강"></textarea>
+        <div class="hint">또는 빠른 생성 →</div>
+        <div class="auto-row">
+          <input type="text" id="fPrefix" placeholder="앞글자" style="flex:1;min-width:0">
+          <input type="number" id="fFrom" value="1" min="1" style="width:48px;flex:none">
+          <span>~</span>
+          <input type="number" id="fTo" value="10" min="1" style="width:48px;flex:none">
+          <input type="text" id="fSuffix" placeholder="뒷글자" style="flex:1;min-width:0">
+          <button class="btn btn-sm" onclick="autoFill()">생성</button>
+        </div>
+        <div class="hint" style="margin-top:4px">예) 뒤: 강 → 1강, 2강, 3강...</div>
+      </div>
+    </div>
+    <div class="field"><label>보상 내용</label><input type="text" id="fReward" placeholder="예: 치킨 먹기 🍗" maxlength="40"></div>
+    <div class="field">
+      <label>카테고리 <span style="color:#bbb;font-weight:400">(선택)</span></label>
+      <select id="fCategory">
+        <option value="">카테고리 없음</option>
+      </select>
+    </div>
+    <div class="field"><label>마감일 <span style="color:#bbb;font-weight:400">(선택)</span></label><input type="date" id="fDeadline"></div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">취소</button>
+      <button class="btn-primary" id="modalSubmit" onclick="submitGoal()">만들기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="couponDetailBg" style="display:none" onclick="if(event.target===this)closeCouponDetail()">
+  <div class="coupon-detail">
+    <div class="drag-handle"></div>
+    <span class="cd-emoji" id="cdEmoji">🎉</span>
+    <div class="cd-name" id="cdName"></div>
+    <div class="cd-reward" id="cdReward"></div>
+    <div class="cd-date" id="cdDate"></div>
+    <div class="cd-actions">
+      <button class="btn-use" id="cdUseBtn" onclick="useCoupon()">🎁 사용하기</button>
+      <button class="btn-del" onclick="deleteCoupon()">🗑 삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 카테고리 관리 모달 -->
+<div class="modal-bg" id="catModalBg" style="display:none" onclick="if(event.target===this)closeCatModal()">
+  <div class="cat-modal">
+    <div class="drag-handle"></div>
+    <h2>카테고리 관리</h2>
+    <div class="cat-list" id="catList"></div>
+    <div class="cat-add-row" style="flex-wrap:wrap;gap:6px">
+      <input type="text" id="catInput" placeholder="새 카테고리 이름" maxlength="12" style="flex:1;min-width:120px">
+      <input type="color" id="catColorInput" value="#7ea83a" style="width:36px;height:36px;padding:2px;border-radius:8px;border:1.5px solid var(--av200);cursor:pointer;flex-shrink:0">
+      <button class="btn btn-green btn-sm" onclick="addCategory()">추가</button>
+    </div>
+    <div class="modal-actions" style="margin-top:1rem">
+      <button class="btn-cancel" style="flex:1" onclick="closeCatModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 커스텀 확인 모달 -->
+<div class="modal-bg" id="confirmBg" style="display:none">
+  <div class="modal" style="max-height:auto;padding:1.5rem 1.25rem 1.5rem" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <p id="confirmMsg" style="font-size:15px;font-weight:600;color:#111827;text-align:center;margin-bottom:1.25rem;line-height:1.5"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="confirmResolve(false)">취소</button>
+      <button class="btn-primary" id="confirmOkBtn" onclick="confirmResolve(true)">확인</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var confirmResolve=null;
+function showConfirm(msg,okLabel,dangerOk){
+  return new Promise(function(resolve){
+    document.getElementById('confirmMsg').textContent=msg;
+    var okBtn=document.getElementById('confirmOkBtn');
+    okBtn.textContent=okLabel||'확인';
+    okBtn.style.background=dangerOk?'#ef4444':'';
+    okBtn.style.borderColor=dangerOk?'#ef4444':'';
+    confirmResolve=function(v){
+      document.getElementById('confirmBg').style.display='none';
+      resolve(v);
+    };
+    document.getElementById('confirmBg').style.display='flex';
+  });
+}
+</script>
+
+<script>
+
+var EMOJIS=['⭐','🌟','✨','💫','🏆','🥇','🎯','🎖️','💪','🏃','🧘','🚴','🏋️','🤸','🧗','🥊','🌸','🌺','🌻','🍀','🌈','🌿','🍃','🦋','🍕','🍔','🍰','🧁','🍦','🍜','🍣','☕','📚','✏️','🎵','🎨','💡','🔬','📝','🎸','❤️','🧡','💛','💚','💙','💜','🔥','😊','🚀','💎','🎪','🦄','🐉','🌙','☀️','⚡'];
+var COLOR_PRESETS=['#7ea83a','#2dd4bf','#38bdf8','#a78bfa','#fb7185','#fb923c','#fbbf24','#a16207','#64748b','#f472b6','#6366f1','#0d9488'];
+var selEmoji='⭐', selColor='#7ea83a', goalType='count';
+var goals=[], coupons=[], categories=[], editingId=null, currentTab='goals', selectedCouponId=null, currentCat='all';
+
+function load(){
+  try{var d=localStorage.getItem('hbt-goals-v4');if(d)goals=JSON.parse(d);}catch(e){goals=[];}
+  try{var dc=localStorage.getItem('hbt-cats');if(dc)categories=JSON.parse(dc);}catch(e){categories=[];}
+  try{var d2=localStorage.getItem('hbt-coupons');if(d2)coupons=JSON.parse(d2);}catch(e){coupons=[];}
+  checkExpired();updateVaultBadge();renderCatBar();render();showInstallBanner();
+}
+function save(){
+  try{localStorage.setItem('hbt-goals-v4',JSON.stringify(goals));}catch(e){}
+  try{localStorage.setItem('hbt-coupons',JSON.stringify(coupons));}catch(e){}
+  try{localStorage.setItem('hbt-cats',JSON.stringify(categories));}catch(e){}
+}
+function checkExpired(){
+  var now=Date.now();
+  goals.forEach(function(g){if(g.deadline&&!g.completed&&now>new Date(g.deadline).getTime()+86400000)g.expired=true;});
+}
+function daysLeft(dl){
+  if(!dl)return null;
+  var n=new Date();n.setHours(0,0,0,0);
+  var d=new Date(dl);d.setHours(0,0,0,0);
+  return Math.ceil((d-n)/86400000);
+}
+function updateVaultBadge(){
+  var unused=coupons.filter(function(c){return!c.used;}).length;
+  var badge=document.getElementById('vaultBadge');
+  if(!badge)return;
+  if(unused>0){badge.textContent=unused;badge.style.display='inline-block';}
+  else badge.style.display='none';
+}
+
+function issueCoupon(goal){
+  var colors=['#638630','#0e7490','#6d28d9','#b91c1c','#b45309','#0f766e','#be185d','#1d4ed8'];
+  var col=goal.color||colors[Math.floor(Math.random()*colors.length)];
+  var coupon={id:Date.now(),goalId:goal.id,goalName:goal.name,reward:goal.reward,emoji:goal.emoji||'🎉',color:col,issuedAt:Date.now(),used:false};
+  coupons.push(coupon);save();showCouponAnimation(coupon);updateVaultBadge();
+}
+function showCouponAnimation(coupon){
+  var overlay=document.getElementById('confettiOverlay');
+  overlay.innerHTML='';
+  var cols=['#7ea83a','#b8d07a','#d4e3a8','#fbbf24','#fb7185','#a78bfa','#fb923c','#2dd4bf'];
+  for(var i=0;i<65;i++){
+    var el=document.createElement('div');
+    el.className='confetti-piece';
+    var w=6+Math.random()*7;
+    el.style.cssText='left:'+Math.random()*100+'%;background:'+cols[i%cols.length]+';animation-duration:'+(1.5+Math.random()*2)+'s;animation-delay:'+Math.random()*0.5+'s;width:'+w+'px;height:'+w+'px;border-radius:'+(Math.random()>0.5?'50%':'2px');
+    overlay.appendChild(el);
+  }
+  var anim=document.getElementById('couponAnim');
+  document.getElementById('couponAnimTop').style.background='linear-gradient(135deg,'+coupon.color+','+coupon.color+'bb)';
+  document.getElementById('couponAnimEmoji').textContent=coupon.emoji||'🎉';
+  document.getElementById('couponAnimName').textContent=coupon.goalName;
+  document.getElementById('couponAnimReward').textContent=coupon.reward;
+  document.getElementById('couponAnimDate').textContent='쿠폰이 보관함에 추가됐어요!';
+  anim.style.display='block';
+  anim.style.animation='none';
+  void anim.offsetWidth;
+  anim.style.animation='couponPop 2.8s ease forwards';
+  setTimeout(function(){anim.style.display='none';overlay.innerHTML='';if(currentTab==='vault')render();},3000);
+}
+
+function showInstallBanner(){
+  if(localStorage.getItem('banner-dismissed'))return;
+  if(window.matchMedia('(display-mode:standalone)').matches||window.navigator.standalone)return;
+  var banner=document.getElementById('installBanner');
+  var text=document.getElementById('installText');
+  var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
+  var isAndroid=/Android/.test(navigator.userAgent);
+  if(isIOS){text.innerHTML='Safari 하단 공유버튼 → <b>홈 화면에 추가</b>하면 앱처럼 열려요!';banner.style.display='flex';}
+  else if(isAndroid){text.innerHTML='브라우저 메뉴 → <b>홈 화면에 추가</b>하면 앱처럼 열려요!';banner.style.display='flex';}
+  else{text.innerHTML='🔖 <b>북마크</b>(Ctrl+D)에 추가하면 빠르게 열 수 있어요!';banner.style.display='flex';}
+}
+function dismissBanner(){document.getElementById('installBanner').style.display='none';localStorage.setItem('banner-dismissed','1');}
+
+(function(){
+  var m={name:'습관 보상 시스템',short_name:'습관 보상',start_url:location.href,display:'standalone',background_color:'#f7f9f0',theme_color:'#7ea83a'};
+  var blob=new Blob([JSON.stringify(m)],{type:'application/json'});
+  document.getElementById('manifestLink').href=URL.createObjectURL(blob);
+})();
+
+function switchTab(t){
+  currentTab=t;
+  document.getElementById('tabGoals').className='tab-btn'+(t==='goals'?' active':'');
+  document.getElementById('tabVault').className='tab-btn'+(t==='vault'?' active':'');
+  document.getElementById('catBar').style.display=t==='goals'?'flex':'none';
+  if(t==='goals')renderCatBar();
+  render();
+}
+
+function setType(t){
+  goalType=t;
+  document.getElementById('typeCount').className='type-btn'+(t==='count'?' active':'');
+  document.getElementById('typeList').className='type-btn'+(t==='list'?' active':'');
+  document.getElementById('countSection').style.display=t==='count'?'':'none';
+  document.getElementById('listSection').style.display=t==='list'?'':'none';
+}
+function toggleEmojiGrid(){
+  var g=document.getElementById('emojiGrid');
+  if(g.style.display==='none'){renderEmojiGrid();g.style.display='flex';}
+  else g.style.display='none';
+}
+function renderEmojiGrid(){
+  var html='';
+  for(var i=0;i<EMOJIS.length;i++){
+    var e=EMOJIS[i];
+    html+='<button class="emoji-opt'+(e===selEmoji?' sel':'')+'" onclick="pickEmoji(\''+e+'\')">'+e+'</button>';
+  }
+  document.getElementById('emojiGrid').innerHTML=html;
+}
+function pickEmoji(e){selEmoji=e;document.getElementById('emojiPreview').textContent=e;renderEmojiGrid();}
+
+function renderColorSwatches(){
+  var html='';
+  for(var i=0;i<COLOR_PRESETS.length;i++){
+    var v=COLOR_PRESETS[i];
+    var sel=v===selColor;
+    html+='<div class="color-swatch'+(sel?' sel':'')+'" style="background:'+v+'" onclick="pickColor(\''+v+'\')"></div>';
+  }
+  document.getElementById('colorSwatches').innerHTML=html;
+}
+function pickColor(v){
+  selColor=v;
+  document.getElementById('colorCustom').value=v;
+  document.getElementById('colorHex').value=v;
+  renderColorSwatches();
+}
+function applyCustomColor(){
+  var hex=document.getElementById('colorHex').value.trim();
+  if(!/^#[0-9A-Fa-f]{6}$/.test(hex)){
+    // try colorCustom input value
+    hex=document.getElementById('colorCustom').value;
+  }
+  selColor=hex;
+  document.getElementById('colorHex').value=hex;
+  document.getElementById('colorCustom').value=hex;
+  renderColorSwatches();
+}
+
+function autoFill(){
+  var pre=document.getElementById('fPrefix').value||'';
+  var suf=document.getElementById('fSuffix').value||'';
+  var from=parseInt(document.getElementById('fFrom').value)||1;
+  var to=parseInt(document.getElementById('fTo').value)||10;
+  if(to<from){alert('끝 번호가 시작보다 커야 해요');return;}
+  if(to-from>49){alert('최대 50개까지 가능해요');return;}
+  var lines=[];
+  for(var i=from;i<=to;i++)lines.push(pre+i+suf);
+  document.getElementById('fItems').value=lines.join('\n');
+}
+
+function openModal(id){
+  editingId=id||null;
+  var g=id?goals.find(function(x){return x.id===id;}):null;
+  document.getElementById('modalTitle').textContent=g?'목표 수정':'새 목표 만들기';
+  document.getElementById('modalSubmit').textContent=g?'저장':'만들기';
+  if(g){
+    setType(g.type||'count');
+    document.getElementById('fName').value=g.name;
+    document.getElementById('fReward').value=g.reward;
+    document.getElementById('fDeadline').value=g.deadline||'';
+    if(g.type==='count'){
+      document.getElementById('fCount').value=g.target;
+      selEmoji=g.emoji||'⭐';
+      document.getElementById('emojiPreview').textContent=selEmoji;
+    } else {
+      document.getElementById('fItems').value=g.items.map(function(i){return i.label;}).join('\n');
+    }
+    selColor=g.color||'#7ea83a';
+  } else {
+    setType('count');
+    document.getElementById('fName').value='';
+    document.getElementById('fReward').value='';
+    document.getElementById('fCount').value='10';
+    document.getElementById('fDeadline').value='';
+    document.getElementById('fItems').value='';
+    document.getElementById('fPrefix').value='';
+    document.getElementById('fSuffix').value='';
+    document.getElementById('fFrom').value='1';
+    document.getElementById('fTo').value='10';
+    selEmoji='⭐';
+    document.getElementById('emojiPreview').textContent='⭐';
+    selColor='#7ea83a';
+  }
+  document.getElementById('emojiGrid').style.display='none';
+  populateCategorySelect(g?g.category:'');
+  document.getElementById('modalBg').style.display='flex';
+}
+function closeModal(){document.getElementById('modalBg').style.display='none';editingId=null;}
+
+function renderCatBar(){
+  var bar=document.getElementById('catBar');
+  if(!bar)return;
+  bar.innerHTML='';
+  var allChip=document.createElement('div');
+  allChip.className='cat-chip'+(currentCat==='all'?' active':'');
+  allChip.innerHTML='전체 <span class="cat-count">('+goals.length+')</span>';
+  allChip.onclick=function(){filterCat('all');};
+  bar.appendChild(allChip);
+  for(var i=0;i<categories.length;i++){
+    (function(catObj){
+      var cat=catObj.name;
+      var cnt=goals.filter(function(g){return g.category===cat;}).length;
+      var chip=document.createElement('div');
+      chip.className='cat-chip'+(currentCat===cat?' active':'');
+      if(currentCat===cat){chip.style.background=catObj.color;chip.style.borderColor=catObj.color;}
+      else{chip.style.borderColor=catObj.color+'88';chip.style.color=catObj.color;}
+      chip.innerHTML=cat+' <span class="cat-count">('+cnt+')</span>';
+      chip.onclick=function(){filterCat(cat);};
+      bar.appendChild(chip);
+    })(categories[i]);
+  }
+  var manageBtn=document.createElement('button');
+  manageBtn.className='cat-manage-btn';
+  manageBtn.textContent='＋ 편집';
+  manageBtn.onclick=openCatModal;
+  bar.appendChild(manageBtn);
+}
+function filterCat(cat){
+  currentCat=cat;
+  renderCatBar();
+  render();
+}
+function openCatModal(){
+  renderCatList();
+  document.getElementById('catInput').value='';
+  document.getElementById('catModalBg').style.display='flex';
+}
+function closeCatModal(){document.getElementById('catModalBg').style.display='none';}
+function renderCatList(){
+  var el=document.getElementById('catList');
+  if(!categories.length){el.innerHTML='<p style="font-size:13px;color:#9ca3af;text-align:center;padding:8px">카테고리가 없어요. 아래에서 추가해보세요!</p>';return;}
+  el.innerHTML='';
+  for(var i=0;i<categories.length;i++){
+    (function(catObj,idx){
+      var cnt=goals.filter(function(g){return g.category===catObj.name;}).length;
+      var row=document.createElement('div');
+      row.className='cat-item';
+      // 색상 도트
+      var dot=document.createElement('input');
+      dot.type='color';dot.value=catObj.color||'#7ea83a';
+      dot.style.cssText='width:28px;height:28px;padding:1px;border-radius:50%;border:2px solid #e5e7eb;cursor:pointer;flex-shrink:0';
+      dot.oninput=function(){updateCategoryColor(idx,this.value);};
+      row.appendChild(dot);
+      var nameSpan=document.createElement('span');
+      nameSpan.className='cat-item-name';nameSpan.textContent=catObj.name;
+      row.appendChild(nameSpan);
+      var cntSpan=document.createElement('span');
+      cntSpan.className='cat-item-count';cntSpan.textContent='목표 '+cnt+'개';
+      row.appendChild(cntSpan);
+      var delBtn=document.createElement('button');
+      delBtn.className='cat-item-del';delBtn.textContent='🗑';
+      delBtn.onclick=function(){deleteCategory(catObj.name);};
+      row.appendChild(delBtn);
+      el.appendChild(row);
+    })(categories[i],i);
+  }
+}
+function addCategory(){
+  var val=document.getElementById('catInput').value.trim();
+  var col=document.getElementById('catColorInput').value||'#7ea83a';
+  if(!val)return;
+  var exists=categories.find(function(ct){return ct.name===val;});
+  if(exists){alert('이미 있는 카테고리예요');return;}
+  categories.push({name:val,color:col});
+  save();
+  document.getElementById('catInput').value='';
+  renderCatList();
+  renderCatBar();
+}
+function deleteCategory(cat){
+  showConfirm('"'+cat+'" 카테고리를 삭제할까요?\n목표의 카테고리 설정은 해제돼요.','삭제',true).then(function(ok){
+    if(!ok)return;
+    categories=categories.filter(function(c){return c.name!==cat;});
+    goals.forEach(function(g){if(g.category===cat)g.category='';});
+    if(currentCat===cat)currentCat='all';
+    save();renderCatList();renderCatBar();render();
+  });
+}
+function updateCategoryColor(idx,color){
+  if(categories[idx])categories[idx].color=color;
+  // 해당 카테고리 목표 색상도 업데이트
+  var catName=categories[idx].name;
+  goals.forEach(function(g){if(g.category===catName)g.color=color;});
+  save();render();
+}
+function getCategoryColor(catName){
+  if(!catName)return '#7ea83a';
+  var cat=categories.find(function(c){return c.name===catName;});
+  return cat?cat.color:'#7ea83a';
+}
+
+function populateCategorySelect(selectedCat){
+  var sel=document.getElementById('fCategory');
+  sel.innerHTML='<option value="">카테고리 없음</option>';
+  for(var i=0;i<categories.length;i++){
+    var opt=document.createElement('option');
+    opt.value=categories[i].name;
+    opt.textContent=categories[i].name;
+    if(categories[i].name===(selectedCat||''))opt.selected=true;
+    sel.appendChild(opt);
+  }
+}
+
+function submitGoal(){
+  var name=document.getElementById('fName').value.trim();
+  var category=document.getElementById('fCategory').value||'';
+  var catColorApplied=getCategoryColor(category);
+  selColor=category?catColorApplied:selColor;
+  var reward=document.getElementById('fReward').value.trim();
+  var deadline=document.getElementById('fDeadline').value||null;
+  if(!name){alert('목표 이름을 입력해주세요');return;}
+  if(!reward){alert('보상 내용을 입력해주세요');return;}
+  if(editingId){
+    var g=goals.find(function(x){return x.id===editingId;});
+    if(g){
+      g.name=name;g.reward=reward;g.deadline=deadline;g.color=selColor;g.category=category;
+      if(g.type==='count'){
+        var nt=Math.min(Math.max(parseInt(document.getElementById('fCount').value)||10,1),100);
+        g.target=nt;g.emoji=selEmoji;
+        if(g.done>g.target)g.done=g.target;
+      } else {
+        var raw=document.getElementById('fItems').value.trim();
+        if(!raw){alert('항목을 입력해주세요');return;}
+        var nl=raw.split('\n').map(function(s){return s.trim();}).filter(Boolean).slice(0,50);
+        g.items=nl.map(function(label){
+          var ex=g.items.find(function(i){return i.label===label;});
+          return ex||{label:label,checked:false};
+        });
+        g.target=g.items.length;
+      }
+      if(!g.completed)g.expired=!!(deadline&&Date.now()>new Date(deadline).getTime()+86400000);
+    }
+  } else {
+    var newG={id:Date.now(),name:name,reward:reward,deadline:deadline,completed:false,expired:false,type:goalType,color:selColor,category:category};
+    if(goalType==='count'){
+      newG.target=Math.min(Math.max(parseInt(document.getElementById('fCount').value)||10,1),100);
+      newG.done=0;newG.emoji=selEmoji;newG.dates=[];
+    } else {
+      var raw2=document.getElementById('fItems').value.trim();
+      if(!raw2){alert('항목을 입력해주세요');return;}
+      var items2=raw2.split('\n').map(function(s){return s.trim();}).filter(Boolean).slice(0,50);
+      if(!items2.length){alert('항목을 입력해주세요');return;}
+      newG.items=items2.map(function(label){return{label:label,checked:false};});
+      newG.target=newG.items.length;
+    }
+    goals.push(newG);
+  }
+  save();closeModal();render();
+}
+
+function stamp(id){
+  var g=goals.find(function(x){return x.id===id;});
+  if(!g||g.expired)return;
+  if(g.completed){
+    showConfirm('달성 완료를 취소할까요?','취소하기',false).then(function(ok){
+      if(!ok)return;
+      g.completed=false;
+      g.done=Math.max(0,g.done-1);
+      if(g.dates&&g.dates.length>0)g.dates.pop();
+      coupons=coupons.filter(function(c){return c.goalId!==id;});
+      save();render();updateVaultBadge();
+    });
+    return;
+  }
+  if(!g.dates)g.dates=[];
+  var now=new Date();
+  g.dates.push((now.getMonth()+1)+'/'+now.getDate());
+  g.done++;
+  if(g.done>=g.target){g.completed=true;save();render();issueCoupon(g);}
+  else{save();render();}
+}
+function unstamp(id){
+  var g=goals.find(function(x){return x.id===id;});
+  if(!g||g.expired||g.done<=0||g.completed)return;
+  g.done--;
+  if(g.dates&&g.dates.length>0)g.dates.pop();
+  save();render();
+}
+function toggleItem(gid,idx){
+  var g=goals.find(function(x){return x.id===gid;});
+  if(!g||g.expired)return;
+  if(g.completed){
+    if(!g.items[idx].checked)return;
+    showConfirm('체크를 취소할까요? 달성 완료도 함께 취소돼요.','취소하기',false).then(function(ok){
+      if(!ok)return;
+      g.items[idx].checked=false;g.completed=false;
+      coupons=coupons.filter(function(c){return c.goalId!==gid;});
+      save();render();updateVaultBadge();
+    });
+    return;
+  }
+  g.items[idx].checked=!g.items[idx].checked;
+  if(g.items.filter(function(i){return i.checked;}).length>=g.target){
+    g.completed=true;save();render();issueCoupon(g);
+  } else {save();render();}
+}
+function deleteGoal(id){
+  showConfirm('목표를 삭제할까요?','삭제',true).then(function(ok){
+    if(!ok)return;
+    goals=goals.filter(function(x){return x.id!==id;});
+    coupons=coupons.filter(function(c){return c.goalId!==id;});
+    save();render();updateVaultBadge();
+  });
+}
+
+function openCouponDetail(id){
+  var c=coupons.find(function(x){return x.id===id;});
+  if(!c)return;
+  selectedCouponId=id;
+  document.getElementById('cdEmoji').textContent=c.used?'🩶':c.emoji||'🎉';
+  document.getElementById('cdName').textContent=c.goalName;
+  document.getElementById('cdReward').textContent=c.reward;
+  document.getElementById('cdDate').textContent=(c.used?'✅ 사용 완료 · ':'📅 발급일 · ')+new Date(c.issuedAt).toLocaleDateString('ko-KR');
+  var btn=document.getElementById('cdUseBtn');
+  if(c.used){btn.textContent='✅ 이미 사용한 쿠폰이에요';btn.className='btn-use used';}
+  else{btn.textContent='🎁 사용하기';btn.className='btn-use';}
+  document.getElementById('couponDetailBg').style.display='flex';
+}
+function closeCouponDetail(){document.getElementById('couponDetailBg').style.display='none';selectedCouponId=null;}
+function useCoupon(){
+  var c=coupons.find(function(x){return x.id===selectedCouponId;});
+  if(!c||c.used)return;
+  c.used=true;c.usedAt=Date.now();
+  save();closeCouponDetail();render();updateVaultBadge();
+}
+function deleteCoupon(){
+  showConfirm('이 쿠폰을 삭제할까요?','삭제',true).then(function(ok){
+    if(!ok)return;
+    coupons=coupons.filter(function(x){return x.id!==selectedCouponId;});
+    save();closeCouponDetail();render();updateVaultBadge();
+  });
+}
+
+function render(){
+  if(currentTab==='vault'){renderVault();return;}
+  var grid=document.getElementById('mainContent');
+  if(!goals.length){
+    grid.innerHTML='<div class="empty-state"><span class="big">🌱</span>목표를 추가해서<br>좋은 습관을 만들어보세요!</div>';
+    return;
+  }
+  var filteredGoals=currentCat==='all'?goals:goals.filter(function(g){return g.category===currentCat;});
+  if(!filteredGoals.length){
+    grid.innerHTML='<div class="empty-state"><span class="big">🔍</span>이 카테고리에<br>목표가 없어요!</div>';
+    return;
+  }
+  var html='<div class="goals-grid">';
+  for(var gi=0;gi<filteredGoals.length;gi++){
+    var g=filteredGoals[gi];
+    var isDone=g.completed, isExp=g.expired;
+    var doneCount=g.type==='count'?g.done:g.items.filter(function(i){return i.checked;}).length;
+    var pct=Math.round(doneCount/g.target*100);
+    var dl=daysLeft(g.deadline);
+    var dlHtml='';
+    if(g.deadline){
+      var warn=!isDone&&!isExp&&dl!==null&&dl<=3;
+      var txt=(isExp||dl<0)?'마감 지남':dl===0?'오늘 마감':'D-'+dl;
+      dlHtml='<span class="dl-text'+(warn?' dl-warn':'')+'">'+txt+'</span>';
+    }
+    var sBadge=isExp?'badge-expired':isDone?'badge-done':'badge-active';
+    var sTxt=isExp?'기간 만료':isDone?'달성 완료 🎉':'진행 중';
+    var tBadge='';
+    var cardColor=g.category?getCategoryColor(g.category):(g.color||'#7ea83a');
+    var bodyHtml='';
+    if(g.type==='count'){
+      var cnt=Math.min(g.target,24);
+      var st='';
+      for(var i=0;i<cnt;i++){
+        var filled=isDone||(i<doneCount);
+        var cls=isDone?'done-s':(i<doneCount?'on':'off');
+        var emoji=filled?(g.emoji||'⭐'):'';
+        var dateLabel=(filled&&g.dates&&g.dates[i])?g.dates[i]:'';
+        var bg='', bdr='';
+        if(cls==='on'){bg=cardColor+'22';bdr=cardColor+'66';}
+        else if(cls==='done-s'){bg=cardColor+'33';bdr=cardColor+'88';}
+        var sStyle=bg?('background:'+bg+';border-color:'+bdr):'';
+        var dateSpan=dateLabel?('<span class="s-date">'+dateLabel+'</span>'):'';
+        st+='<div class="sticker '+cls+'" style="'+sStyle+'">';
+        st+='<span class="s-emoji">'+emoji+'</span>'+dateSpan;
+        st+='</div>';
+      }
+      if(g.target>24)st+='<div class="sticker off" style="font-size:10px;color:#9ca3af">+'+  (g.target-24)+'</div>';
+      var btnHtml='';
+      if(isDone){
+        btnHtml='<button class="stamp-btn" onclick="stamp('+g.id+')" style="background:'+cardColor+'22;border-color:'+cardColor+'66;color:'+cardColor+'">🏆 달성 완료 — 취소하려면 탭</button>';
+      } else if(isExp){
+        btnHtml='<button class="stamp-btn" disabled>⏰ 기간 만료</button>';
+      } else {
+        btnHtml='<div style="display:flex;gap:6px"><button class="stamp-btn" onclick="stamp('+g.id+')" style="flex:1">+ 오늘 달성했어요</button><button class="stamp-btn" onclick="unstamp('+g.id+')" style="width:40px;flex:none;font-size:17px"'+(g.done<=0?' disabled':'')+'>↩</button></div>';
+      }
+      bodyHtml='<div class="stickers">'+st+'</div>'+btnHtml;
+    } else {
+      var chkHtml='';
+      for(var ci=0;ci<g.items.length;ci++){
+        var item=g.items[ci];
+        var chkStyle=item.checked?('background:'+cardColor+';border-color:'+cardColor):'';
+        chkHtml+='<div class="chk-item'+(item.checked?' checked':'')+'" onclick="'+(isExp?'':'toggleItem('+g.id+','+ci+')')+'"><div class="chk-box" style="'+chkStyle+'">'+(item.checked?'✓':'')+'</div><span class="chk-label">'+item.label+'</span></div>';
+      }
+      bodyHtml='<div class="checklist">'+chkHtml+'</div>';
+    }
+    html+='<div class="goal-card'+(isExp?' expired':'')+'" style="border-top-color:'+cardColor+'">';
+    html+='<div class="card-header"><div class="card-title">'+g.name+'</div><div class="card-actions"><button class="icon-btn" onclick="openModal('+g.id+')">✏️</button><button class="icon-btn del" onclick="deleteGoal('+g.id+')">🗑</button></div></div>';
+    var catBadge=g.category?('<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:#f3f4f6;color:#6b7280">'+g.category+'</span>'):'';
+    html+='<div class="meta-row"><span class="badge '+sBadge+'">'+sTxt+'</span>'+tBadge+catBadge+dlHtml+'</div>';
+    html+='<div class="reward-line">보상: <span style="color:'+cardColor+'">'+g.reward+'</span></div>';
+    html+='<div class="prog-text">'+doneCount+' / '+g.target+' ('+pct+'%)</div>';
+    html+='<div class="prog-bg"><div class="prog-fill" style="width:'+pct+'%;background:linear-gradient(90deg,'+cardColor+'99,'+cardColor+')"></div></div>';
+    html+=bodyHtml+'</div>';
+  }
+  html+='</div>';
+  grid.innerHTML=html;
+}
+
+function renderVault(){
+  var el=document.getElementById('mainContent');
+  if(!coupons.length){
+    el.innerHTML='<div class="empty-state"><span class="big">🎫</span>아직 달성한 목표가 없어요.<br>목표를 달성하면 쿠폰이 여기에 쌓여요!</div>';
+    return;
+  }
+  var unused=coupons.filter(function(c){return!c.used;});
+  var used=coupons.filter(function(c){return c.used;});
+  var html='';
+  if(unused.length){
+    html+='<div class="vault-grid">';
+    for(var i=0;i<unused.length;i++){
+      var c=unused[i];
+      var col=c.color||'#638630';
+      html+='<div class="vault-coupon" onclick="openCouponDetail('+c.id+')">';
+      html+='<div class="vc-top" style="background:linear-gradient(135deg,'+col+','+col+'bb)">';
+      html+='<span class="vc-emoji">'+c.emoji+'</span>';
+      html+='<div class="vc-name">'+c.goalName+'</div></div>';
+      html+='<div class="vc-divider"></div>';
+      html+='<div class="vc-bottom"><div class="vc-reward">'+c.reward+'</div><div class="vc-date">'+new Date(c.issuedAt).toLocaleDateString('ko-KR')+'</div></div>';
+      html+='</div>';
+    }
+    html+='</div>';
+  }
+  if(used.length){
+    html+='<div class="section-label">사용한 쿠폰 ('+used.length+')</div><div class="vault-grid">';
+    for(var j=0;j<used.length;j++){
+      var cu=used[j];
+      html+='<div class="vault-coupon" onclick="openCouponDetail('+cu.id+')">';
+      html+='<div class="vc-top" style="background:#e5e7eb;position:relative">';
+      html+='<div class="vc-used-badge">사용완료</div>';
+      html+='<span class="vc-emoji" style="filter:grayscale(1);opacity:0.6">'+cu.emoji+'</span>';
+      html+='<div class="vc-name-gray">'+cu.goalName+'</div></div>';
+      html+='<div class="vc-divider"></div>';
+      html+='<div class="vc-bottom"><div class="vc-reward-gray">'+cu.reward+'</div><div class="vc-date">'+new Date(cu.issuedAt).toLocaleDateString('ko-KR')+'</div></div>';
+      html+='</div>';
+    }
+    html+='</div>';
+  }
+  el.innerHTML=html;
+}
+
+load();
+</script>
+</body>
+</html>
