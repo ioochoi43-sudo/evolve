@@ -267,6 +267,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--av50);co
     </div>
     <div class="field"><label>마감일 <span style="color:#bbb;font-weight:400">(선택)</span></label><input type="date" id="fDeadline"></div>
 
+    <div id="colorSwatches" style="display:none"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">취소</button>
       <button class="btn-primary" id="modalSubmit" onclick="submitGoal()">만들기</button>
@@ -302,6 +303,17 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--av50);co
     <div class="modal-actions" style="margin-top:1rem">
       <button class="btn-cancel" style="flex:1" onclick="closeCatModal()">닫기</button>
     </div>
+  </div>
+</div>
+
+<!-- 응원 메시지 팝업 -->
+<div class="modal-bg" id="cheerPop" style="display:none">
+  <div class="modal" style="max-height:auto;padding:2rem 1.5rem 2rem;text-align:center" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <span style="font-size:52px;display:block;margin-bottom:12px" id="cheerEmoji">🌱</span>
+    <div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:8px" id="cheerTitle"></div>
+    <div style="font-size:14px;color:#6b7280;line-height:1.7;margin-bottom:1.5rem;white-space:pre-line" id="cheerMsg"></div>
+    <button class="btn-primary" style="width:100%;padding:11px" onclick="document.getElementById('cheerPop').style.display='none'">확인</button>
   </div>
 </div>
 
@@ -341,6 +353,21 @@ var EMOJIS=['⭐','🌟','✨','💫','🏆','🥇','🎯','🎖️','💪','�
 var COLOR_PRESETS=['#7ea83a','#2dd4bf','#38bdf8','#a78bfa','#fb7185','#fb923c','#fbbf24','#a16207','#64748b','#f472b6','#6366f1','#0d9488'];
 var selEmoji='⭐', selColor='#7ea83a', goalType='count';
 var goals=[], coupons=[], categories=[], editingId=null, currentTab='goals', selectedCouponId=null, currentCat='all';
+var CHEER_MSGS=[
+  {e:'🌱',t:'포기하지 않았어요!',m:'기한은 지났지만 끝까지 해낸 당신,\n그 꾸준함이 진짜 실력이에요.'},
+  {e:'💪',t:'수고했어요, 정말로!',m:'늦었어도 괜찮아요. 하지 않은 것과\n끝까지 한 것은 완전히 달라요.'},
+  {e:'🌿',t:'천천히, 하지만 해냈어요!',m:'속도보다 방향이 중요해요.\n당신은 올바른 방향으로 가고 있어요.'},
+  {e:'✨',t:'작은 발전도 발전이에요!',m:'완벽하지 않아도 괜찮아요.\n오늘의 당신은 어제보다 성장했어요.'},
+  {e:'🎯',t:'다음엔 기한 내에 도전해봐요!',m:'이번 경험이 다음엔 더 잘할 수 있는\n발판이 될 거예요. 응원해요!'},
+  {e:'🌸',t:'끝까지 해낸 것만으로도 충분해요!',m:'쉽지 않았을 텐데도 포기하지 않은\n당신이 자랑스러워요.'}
+];
+function showCheer(){
+  var msg=CHEER_MSGS[Math.floor(Math.random()*CHEER_MSGS.length)];
+  document.getElementById('cheerEmoji').textContent=msg.e;
+  document.getElementById('cheerTitle').textContent=msg.t;
+  document.getElementById('cheerMsg').textContent=msg.m;
+  document.getElementById('cheerPop').style.display='flex';
+}
 
 function load(){
   try{var d=localStorage.getItem('hbt-goals-v4');if(d)goals=JSON.parse(d);}catch(e){goals=[];}
@@ -655,7 +682,7 @@ function submitGoal(){
   if(editingId){
     var g=goals.find(function(x){return x.id===editingId;});
     if(g){
-      g.name=name;g.reward=reward;g.deadline=deadline;g.color=selColor;g.category=category;
+      g.name=name;g.reward=reward;g.color=selColor;g.category=category;
       if(g.type==='count'){
         var nt=Math.min(Math.max(parseInt(document.getElementById('fCount').value)||10,1),100);
         g.target=nt;g.emoji=selEmoji;
@@ -670,7 +697,11 @@ function submitGoal(){
         });
         g.target=g.items.length;
       }
-      if(!g.completed)g.expired=!!(deadline&&Date.now()>new Date(deadline).getTime()+86400000);
+      // 마감일 변경 시 expired 재계산
+      if(!g.completed){
+        g.deadline=deadline;
+        g.expired=isExpiredNow(g);
+      }
     }
   } else {
     var newG={id:Date.now(),name:name,reward:reward,deadline:deadline,completed:false,expired:false,type:goalType,color:selColor,category:category};
@@ -690,9 +721,14 @@ function submitGoal(){
   save();closeModal();render();
 }
 
+function isExpiredNow(g){
+  if(!g.deadline)return false;
+  return Date.now()>new Date(g.deadline).getTime()+86400000;
+}
 function stamp(id){
   var g=goals.find(function(x){return x.id===id;});
-  if(!g||g.expired)return;
+  if(!g)return;
+  // completed 취소는 항상 최우선 (기한 지나도 취소 가능)
   if(g.completed){
     showConfirm('달성 완료를 취소할까요?','취소하기',false).then(function(ok){
       if(!ok)return;
@@ -704,6 +740,17 @@ function stamp(id){
     });
     return;
   }
+  // 실시간 마감 체크
+  if(isExpiredNow(g))g.expired=true;
+  if(g.expired){
+    if(!g.dates)g.dates=[];
+    var nowE=new Date();
+    g.dates.push((nowE.getMonth()+1)+'/'+nowE.getDate());
+    g.done++;
+    if(g.done>=g.target){g.completed=true;save();render();showCheer();}
+    else{save();render();}
+    return;
+  }
   if(!g.dates)g.dates=[];
   var now=new Date();
   g.dates.push((now.getMonth()+1)+'/'+now.getDate());
@@ -713,14 +760,15 @@ function stamp(id){
 }
 function unstamp(id){
   var g=goals.find(function(x){return x.id===id;});
-  if(!g||g.expired||g.done<=0||g.completed)return;
+  if(!g||g.done<=0||g.completed)return;
   g.done--;
   if(g.dates&&g.dates.length>0)g.dates.pop();
   save();render();
 }
 function toggleItem(gid,idx){
   var g=goals.find(function(x){return x.id===gid;});
-  if(!g||g.expired)return;
+  if(!g)return;
+  // completed 취소 최우선
   if(g.completed){
     if(!g.items[idx].checked)return;
     showConfirm('체크를 취소할까요? 달성 완료도 함께 취소돼요.','취소하기',false).then(function(ok){
@@ -729,6 +777,15 @@ function toggleItem(gid,idx){
       coupons=coupons.filter(function(c){return c.goalId!==gid;});
       save();render();updateVaultBadge();
     });
+    return;
+  }
+  // 실시간 마감 체크
+  if(isExpiredNow(g))g.expired=true;
+  if(g.expired){
+    g.items[idx].checked=!g.items[idx].checked;
+    if(g.items.filter(function(i){return i.checked;}).length>=g.target){
+      g.completed=true;save();render();showCheer();
+    } else {save();render();}
     return;
   }
   g.items[idx].checked=!g.items[idx].checked;
@@ -825,7 +882,7 @@ function render(){
       if(isDone){
         btnHtml='<button class="stamp-btn" onclick="stamp('+g.id+')" style="background:'+cardColor+'22;border-color:'+cardColor+'66;color:'+cardColor+'">🏆 달성 완료 — 취소하려면 탭</button>';
       } else if(isExp){
-        btnHtml='<button class="stamp-btn" disabled>⏰ 기간 만료</button>';
+        btnHtml='<div style="display:flex;gap:6px"><button class="stamp-btn" onclick="stamp('+g.id+')" style="flex:1;border-color:#d97706;color:#d97706">+ 기한 후 달성 (쿠폰없음)</button><button class="stamp-btn" onclick="unstamp('+g.id+')" style="width:40px;flex:none;font-size:17px"'+(g.done<=0?' disabled':'')+'>↩</button></div>';
       } else {
         btnHtml='<div style="display:flex;gap:6px"><button class="stamp-btn" onclick="stamp('+g.id+')" style="flex:1">+ 오늘 달성했어요</button><button class="stamp-btn" onclick="unstamp('+g.id+')" style="width:40px;flex:none;font-size:17px"'+(g.done<=0?' disabled':'')+'>↩</button></div>';
       }
@@ -835,7 +892,7 @@ function render(){
       for(var ci=0;ci<g.items.length;ci++){
         var item=g.items[ci];
         var chkStyle=item.checked?('background:'+cardColor+';border-color:'+cardColor):'';
-        chkHtml+='<div class="chk-item'+(item.checked?' checked':'')+'" onclick="'+(isExp?'':'toggleItem('+g.id+','+ci+')')+'"><div class="chk-box" style="'+chkStyle+'">'+(item.checked?'✓':'')+'</div><span class="chk-label">'+item.label+'</span></div>';
+        chkHtml+='<div class="chk-item'+(item.checked?' checked':'')+'" onclick="'+'toggleItem('+g.id+','+ci+')'+'"><div class="chk-box" style="'+chkStyle+'">'+(item.checked?'✓':'')+'</div><span class="chk-label">'+item.label+'</span></div>';
       }
       bodyHtml='<div class="checklist">'+chkHtml+'</div>';
     }
