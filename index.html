@@ -179,13 +179,24 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--av50);co
 .cat-add-row{display:flex;gap:8px}
 .cat-add-row input{flex:1;border-radius:10px;border:1.5px solid var(--av200);padding:8px 10px;font-size:14px;font-family:inherit;font-weight:500;background:#fff;color:var(--g900);outline:none}
 .cat-add-row input:focus{border-color:var(--av400)}
+.date-quick{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.date-quick button{padding:4px 9px;border-radius:7px;border:1.5px solid var(--av200);background:#fff;font-size:11px;font-weight:700;color:var(--av700);cursor:pointer;font-family:inherit;transition:all 0.15s}
+.date-quick button:hover{background:var(--av100)}
+.streak-badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#fef3c7;color:#b45309}
+.streak-fail{background:#fef2f2;color:#991b1b}
+.streak-fire{background:#fff7ed;color:#c2410c}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="top-bar">
     <h1>🌿 습관 보상 시스템</h1>
-    <button class="btn btn-green" onclick="openModal()">＋ 목표 추가</button>
+    <div style="display:flex;gap:6px">
+      <button class="btn" onclick="exportData()" title="내보내기">📤</button>
+      <button class="btn" onclick="document.getElementById('importFile').click()" title="불러오기">📥</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+      <button class="btn btn-green" onclick="openModal()">＋ 목표 추가</button>
+    </div>
   </div>
   <div class="install-banner" id="installBanner">
     <span style="font-size:20px;flex-shrink:0">📲</span>
@@ -234,6 +245,14 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--av50);co
     <div id="countSection">
       <div class="field"><label>목표 횟수</label><input type="number" id="fCount" min="1" max="100" value="10"></div>
       <div class="field">
+        <label>연속 달성 모드 <span style="color:#bbb;font-weight:400">(선택)</span></label>
+        <select id="fStreak">
+          <option value="0">사용 안 함</option>
+          <option value="1">사용 — 하루라도 빠지면 처음부터 다시</option>
+        </select>
+        <div class="hint" id="streakHint" style="display:none;color:#d97706">⚠️ 연속달성 모드: 매일 달성해야 해요. 하루 빠지면 목표가 초기화돼요!</div>
+      </div>
+      <div class="field">
         <label>달성 스티커 이모지</label>
         <div class="emoji-input-row">
           <div class="emoji-preview" id="emojiPreview" onclick="toggleEmojiGrid()">⭐</div>
@@ -265,7 +284,17 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--av50);co
         <option value="">카테고리 없음</option>
       </select>
     </div>
-    <div class="field"><label>마감일 <span style="color:#bbb;font-weight:400">(선택)</span></label><input type="date" id="fDeadline"></div>
+    <div class="field">
+      <label>마감일 <span style="color:#bbb;font-weight:400">(선택)</span></label>
+      <input type="date" id="fDeadline">
+      <div class="date-quick">
+        <button onclick="setDeadline(7)">+7일</button>
+        <button onclick="setDeadline(14)">+14일</button>
+        <button onclick="setDeadline(30)">+30일</button>
+        <button onclick="setDeadline(90)">+90일</button>
+        <button onclick="setDeadline(100)">+100일</button>
+      </div>
+    </div>
 
     <div id="colorSwatches" style="display:none"></div>
     <div class="modal-actions">
@@ -369,11 +398,81 @@ function showCheer(){
   document.getElementById('cheerPop').style.display='flex';
 }
 
+// ── 날짜 퀵버튼 ──
+function setDeadline(days){
+  var d=new Date();
+  d.setDate(d.getDate()+days);
+  var y=d.getFullYear();
+  var m=String(d.getMonth()+1).padStart(2,'0');
+  var day=String(d.getDate()).padStart(2,'0');
+  document.getElementById('fDeadline').value=y+'-'+m+'-'+day;
+}
+
+// ── 연속달성 체크 (매일 자동 실행) ──
+function todayStr(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function checkStreaks(){
+  var today=todayStr();
+  var changed=false;
+  goals.forEach(function(g){
+    if(!g.streak||g.completed||g.expired)return;
+    if(!g.lastStampDate)return;
+    // 어제 달성했어야 하는데 안 한 경우 → 실패
+    var last=new Date(g.lastStampDate);
+    last.setDate(last.getDate()+1);
+    var expected=last.getFullYear()+'-'+String(last.getMonth()+1).padStart(2,'0')+'-'+String(last.getDate()).padStart(2,'0');
+    if(today>expected){
+      // 연속달성 실패 → 초기화
+      g.done=0;g.dates=[];g.lastStampDate=null;g.streakCount=0;g.streakFailed=true;
+      changed=true;
+    }
+  });
+  if(changed)save();
+}
+
+// ── 내보내기 ──
+function exportData(){
+  var data={goals:goals,coupons:coupons,categories:categories,exportedAt:new Date().toISOString()};
+  var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  var d=new Date();
+  a.download='습관보상_백업_'+d.getFullYear()+(d.getMonth()+1)+d.getDate()+'.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── 불러오기 ──
+function importData(e){
+  var file=e.target.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      var data=JSON.parse(ev.target.result);
+      if(!data.goals&&!data.coupons){alert('올바른 백업 파일이 아니에요.');return;}
+      showConfirm('기존 데이터를 백업 파일로 교체할까요?\n현재 데이터는 사라져요.','교체',true).then(function(ok){
+        if(!ok)return;
+        if(data.goals)goals=data.goals;
+        if(data.coupons)coupons=data.coupons;
+        if(data.categories)categories=data.categories;
+        save();checkExpired();updateVaultBadge();renderCatBar();render();
+        alert('불러오기 완료!');
+      });
+    }catch(err){alert('파일을 읽을 수 없어요.');}
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
 function load(){
   try{var d=localStorage.getItem('hbt-goals-v4');if(d)goals=JSON.parse(d);}catch(e){goals=[];}
   try{var dc=localStorage.getItem('hbt-cats');if(dc)categories=JSON.parse(dc);}catch(e){categories=[];}
   try{var d2=localStorage.getItem('hbt-coupons');if(d2)coupons=JSON.parse(d2);}catch(e){coupons=[];}
-  checkExpired();updateVaultBadge();renderCatBar();render();showInstallBanner();
+  checkExpired();checkStreaks();updateVaultBadge();renderCatBar();render();showInstallBanner();
 }
 function save(){
   try{localStorage.setItem('hbt-goals-v4',JSON.stringify(goals));}catch(e){}
@@ -531,6 +630,8 @@ function openModal(id){
       document.getElementById('fCount').value=g.target;
       selEmoji=g.emoji||'⭐';
       document.getElementById('emojiPreview').textContent=selEmoji;
+      document.getElementById('fStreak').value=g.streak?'1':'0';
+      document.getElementById('streakHint').style.display=g.streak?'block':'none';
     } else {
       document.getElementById('fItems').value=g.items.map(function(i){return i.label;}).join('\n');
     }
@@ -540,6 +641,8 @@ function openModal(id){
     document.getElementById('fName').value='';
     document.getElementById('fReward').value='';
     document.getElementById('fCount').value='10';
+    document.getElementById('fStreak').value='0';
+    document.getElementById('streakHint').style.display='none';
     document.getElementById('fDeadline').value='';
     document.getElementById('fItems').value='';
     document.getElementById('fPrefix').value='';
@@ -552,6 +655,9 @@ function openModal(id){
   }
   document.getElementById('emojiGrid').style.display='none';
   populateCategorySelect(g?g.category:'');
+  document.getElementById('fStreak').onchange=function(){
+    document.getElementById('streakHint').style.display=this.value==='1'?'block':'none';
+  };
   document.getElementById('modalBg').style.display='flex';
 }
 function closeModal(){document.getElementById('modalBg').style.display='none';editingId=null;}
@@ -683,6 +789,7 @@ function submitGoal(){
     var g=goals.find(function(x){return x.id===editingId;});
     if(g){
       g.name=name;g.reward=reward;g.color=selColor;g.category=category;
+      if(g.type==='count')g.streak=document.getElementById('fStreak').value==='1';
       if(g.type==='count'){
         var nt=Math.min(Math.max(parseInt(document.getElementById('fCount').value)||10,1),100);
         g.target=nt;g.emoji=selEmoji;
@@ -704,7 +811,8 @@ function submitGoal(){
       }
     }
   } else {
-    var newG={id:Date.now(),name:name,reward:reward,deadline:deadline,completed:false,expired:false,type:goalType,color:selColor,category:category};
+    var useStreak=goalType==='count'&&document.getElementById('fStreak').value==='1';
+    var newG={id:Date.now(),name:name,reward:reward,deadline:deadline,completed:false,expired:false,type:goalType,color:selColor,category:category,streak:useStreak,streakCount:0,lastStampDate:null,streakFailed:false};
     if(goalType==='count'){
       newG.target=Math.min(Math.max(parseInt(document.getElementById('fCount').value)||10,1),100);
       newG.done=0;newG.emoji=selEmoji;newG.dates=[];
@@ -751,10 +859,21 @@ function stamp(id){
     else{save();render();}
     return;
   }
+  var today=todayStr();
+  // 연속달성 모드: 오늘 이미 달성했으면 중복 방지
+  if(g.streak&&g.lastStampDate===today){
+    showConfirm('오늘은 이미 달성했어요!\n연속달성 모드에서는 하루에 한 번만 가능해요.','확인',false);
+    return;
+  }
   if(!g.dates)g.dates=[];
   var now=new Date();
   g.dates.push((now.getMonth()+1)+'/'+now.getDate());
   g.done++;
+  if(g.streak){
+    g.lastStampDate=today;
+    g.streakCount=(g.streakCount||0)+1;
+    g.streakFailed=false;
+  }
   if(g.done>=g.target){g.completed=true;save();render();issueCoupon(g);}
   else{save();render();}
 }
@@ -763,6 +882,10 @@ function unstamp(id){
   if(!g||g.done<=0||g.completed)return;
   g.done--;
   if(g.dates&&g.dates.length>0)g.dates.pop();
+  if(g.streak){
+    g.streakCount=Math.max(0,(g.streakCount||1)-1);
+    g.lastStampDate=g.dates&&g.dates.length>0?todayStr():null;
+  }
   save();render();
 }
 function toggleItem(gid,idx){
@@ -899,7 +1022,13 @@ function render(){
     html+='<div class="goal-card'+(isExp?' expired':'')+'" style="border-top-color:'+cardColor+'">';
     html+='<div class="card-header"><div class="card-title">'+g.name+'</div><div class="card-actions"><button class="icon-btn" onclick="openModal('+g.id+')">✏️</button><button class="icon-btn del" onclick="deleteGoal('+g.id+')">🗑</button></div></div>';
     var catBadge=g.category?('<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:#f3f4f6;color:#6b7280">'+g.category+'</span>'):'';
-    html+='<div class="meta-row"><span class="badge '+sBadge+'">'+sTxt+'</span>'+tBadge+catBadge+dlHtml+'</div>';
+    var streakBadge='';
+    if(g.streak&&!g.completed){
+      if(g.streakFailed){streakBadge='<span class="streak-badge streak-fail">💔 연속 실패</span>';}
+      else if(g.streakCount>0){streakBadge='<span class="streak-badge streak-fire">🔥 '+g.streakCount+'일 연속</span>';}
+      else{streakBadge='<span class="streak-badge">🎯 연속달성</span>';}
+    }
+    html+='<div class="meta-row"><span class="badge '+sBadge+'">'+sTxt+'</span>'+tBadge+catBadge+streakBadge+dlHtml+'</div>';
     html+='<div class="reward-line">보상: <span style="color:'+cardColor+'">'+g.reward+'</span></div>';
     html+='<div class="prog-text">'+doneCount+' / '+g.target+' ('+pct+'%)</div>';
     html+='<div class="prog-bg"><div class="prog-fill" style="width:'+pct+'%;background:linear-gradient(90deg,'+cardColor+'99,'+cardColor+')"></div></div>';
