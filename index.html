@@ -36,6 +36,11 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--av50);co
 .goal-card{background:#fff;border:1.5px solid var(--av100);border-radius:14px;padding:1rem 1.1rem;transition:box-shadow 0.15s;border-top-width:4px}
 .goal-card:hover{box-shadow:0 2px 12px rgba(0,0,0,0.08)}
 .goal-card.expired{opacity:0.55}
+.goal-card.done-card{opacity:0.5;filter:grayscale(0.6)}
+.sort-bar{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.sort-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;border:1.5px solid var(--av200);background:#fff;font-size:11px;font-weight:700;color:var(--g500);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:all 0.15s}
+.sort-btn:hover{background:var(--av50)}
+.sort-btn.active{background:var(--av100);color:var(--av700);border-color:var(--av300)}
 .card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
 .card-title{font-size:14px;font-weight:700;color:var(--g900);line-height:1.4;flex:1;padding-right:6px}
 .card-actions{display:flex;gap:2px;flex-shrink:0}
@@ -206,6 +211,13 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--av50);co
   <div class="tabs">
     <button class="tab-btn active" id="tabGoals" onclick="switchTab('goals')">🎯 목표</button>
     <button class="tab-btn" id="tabVault" onclick="switchTab('vault')">🎫 쿠폰 보관함 <span class="tab-badge" id="vaultBadge" style="display:none">0</span></button>
+  </div>
+  <div id="sortBar" class="sort-bar" style="display:flex">
+    <span style="font-size:11px;font-weight:700;color:#9ca3af">정렬:</span>
+    <button class="sort-btn active" id="sort-default" onclick="setSort('default')">기본</button>
+    <button class="sort-btn" id="sort-deadline" onclick="setSort('deadline')">마감일 ↑</button>
+    <button class="sort-btn" id="sort-deadline-desc" onclick="setSort('deadline-desc')">마감일 ↓</button>
+    <button class="sort-btn" id="sort-progress" onclick="setSort('progress')">진행률 ↑</button>
   </div>
   <div id="catBar" class="cat-bar" style="display:flex"></div>
   <div id="mainContent"></div>
@@ -381,7 +393,7 @@ function showConfirm(msg,okLabel,dangerOk){
 var EMOJIS=['⭐','🌟','✨','💫','🏆','🥇','🎯','🎖️','💪','🏃','🧘','🚴','🏋️','🤸','🧗','🥊','🌸','🌺','🌻','🍀','🌈','🌿','🍃','🦋','🍕','🍔','🍰','🧁','🍦','🍜','🍣','☕','📚','✏️','🎵','🎨','💡','🔬','📝','🎸','❤️','🧡','💛','💚','💙','💜','🔥','😊','🚀','💎','🎪','🦄','🐉','🌙','☀️','⚡'];
 var COLOR_PRESETS=['#7ea83a','#2dd4bf','#38bdf8','#a78bfa','#fb7185','#fb923c','#fbbf24','#a16207','#64748b','#f472b6','#6366f1','#0d9488'];
 var selEmoji='⭐', selColor='#7ea83a', goalType='count';
-var goals=[], coupons=[], categories=[], editingId=null, currentTab='goals', selectedCouponId=null, currentCat='all';
+var goals=[], coupons=[], categories=[], editingId=null, currentTab='goals', selectedCouponId=null, currentCat='all', currentSort='default';
 var CHEER_MSGS=[
   {e:'🌱',t:'포기하지 않았어요!',m:'기한은 지났지만 끝까지 해낸 당신,\n그 꾸준함이 진짜 실력이에요.'},
   {e:'💪',t:'수고했어요, 정말로!',m:'늦었어도 괜찮아요. 하지 않은 것과\n끝까지 한 것은 완전히 달라요.'},
@@ -408,23 +420,60 @@ function setDeadline(days){
   document.getElementById('fDeadline').value=y+'-'+m+'-'+day;
 }
 
+// ── 정렬 ──
+function setSort(type){
+  currentSort=type;
+  ['default','deadline','deadline-desc','progress'].forEach(function(t){
+    var btn=document.getElementById('sort-'+t);
+    if(btn)btn.className='sort-btn'+(t===type?' active':'');
+  });
+  render();
+}
+function sortGoals(arr){
+  // 완료/만료는 항상 뒤로
+  var active=arr.filter(function(g){return !g.completed&&!g.expired;});
+  var expired=arr.filter(function(g){return g.expired&&!g.completed;});
+  var done=arr.filter(function(g){return g.completed;});
+  function byDeadline(a,b){
+    if(!a.deadline&&!b.deadline)return 0;
+    if(!a.deadline)return 1;
+    if(!b.deadline)return -1;
+    return new Date(a.deadline)-new Date(b.deadline);
+  }
+  function byDeadlineDesc(a,b){return byDeadline(b,a);}
+  function byProgress(a,b){
+    var pa=(a.type==='count'?a.done:a.items.filter(function(i){return i.checked;}).length)/a.target;
+    var pb=(b.type==='count'?b.done:b.items.filter(function(i){return i.checked;}).length)/b.target;
+    return pa-pb;
+  }
+  if(currentSort==='deadline'){active.sort(byDeadline);expired.sort(byDeadline);}
+  else if(currentSort==='deadline-desc'){active.sort(byDeadlineDesc);expired.sort(byDeadlineDesc);}
+  else if(currentSort==='progress'){active.sort(byProgress);}
+  return active.concat(expired).concat(done);
+}
+
 // ── 연속달성 체크 (매일 자동 실행) ──
 function todayStr(){
   var d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+function dateOnly(d){
+  // YYYY-MM-DD 형식의 날짜를 자정 기준 ms로 변환 (시간대 오류 방지)
+  var parts=d.split('-');
+  return new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2])).getTime();
+}
 function checkStreaks(){
   var today=todayStr();
+  var todayMs=dateOnly(today);
   var changed=false;
   goals.forEach(function(g){
     if(!g.streak||g.completed||g.expired)return;
     if(!g.lastStampDate)return;
-    // 어제 달성했어야 하는데 안 한 경우 → 실패
-    var last=new Date(g.lastStampDate);
-    last.setDate(last.getDate()+1);
-    var expected=last.getFullYear()+'-'+String(last.getMonth()+1).padStart(2,'0')+'-'+String(last.getDate()).padStart(2,'0');
-    if(today>expected){
-      // 연속달성 실패 → 초기화
+    var lastMs=dateOnly(g.lastStampDate);
+    // 마지막 달성일의 다음날 자정
+    var nextDayMs=lastMs+86400000;
+    // 오늘이 다음날보다 더 뒤면 → 하루 이상 빠진 것 → 실패
+    if(todayMs>nextDayMs){
       g.done=0;g.dates=[];g.lastStampDate=null;g.streakCount=0;g.streakFailed=true;
       changed=true;
     }
@@ -551,6 +600,7 @@ function switchTab(t){
   document.getElementById('tabGoals').className='tab-btn'+(t==='goals'?' active':'');
   document.getElementById('tabVault').className='tab-btn'+(t==='vault'?' active':'');
   document.getElementById('catBar').style.display=t==='goals'?'flex':'none';
+  document.getElementById('sortBar').style.display=t==='goals'?'flex':'none';
   if(t==='goals')renderCatBar();
   render();
 }
@@ -961,6 +1011,7 @@ function render(){
     return;
   }
   var filteredGoals=currentCat==='all'?goals:goals.filter(function(g){return g.category===currentCat;});
+  filteredGoals=sortGoals(filteredGoals);
   if(!filteredGoals.length){
     grid.innerHTML='<div class="empty-state"><span class="big">🔍</span>이 카테고리에<br>목표가 없어요!</div>';
     return;
@@ -1019,7 +1070,8 @@ function render(){
       }
       bodyHtml='<div class="checklist">'+chkHtml+'</div>';
     }
-    html+='<div class="goal-card'+(isExp?' expired':'')+'" style="border-top-color:'+cardColor+'">';
+    var cardClass='goal-card'+(isExp?' expired':'')+(isDone?' done-card':'');
+    html+='<div class="'+cardClass+'" style="border-top-color:'+cardColor+'">';
     html+='<div class="card-header"><div class="card-title">'+g.name+'</div><div class="card-actions"><button class="icon-btn" onclick="openModal('+g.id+')">✏️</button><button class="icon-btn del" onclick="deleteGoal('+g.id+')">🗑</button></div></div>';
     var catBadge=g.category?('<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:#f3f4f6;color:#6b7280">'+g.category+'</span>'):'';
     var streakBadge='';
