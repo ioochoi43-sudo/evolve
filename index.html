@@ -209,8 +209,9 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--av50);co
     <button class="ib-close" onclick="dismissBanner()">✕</button>
   </div>
   <div class="tabs">
-    <button class="tab-btn active" id="tabGoals" onclick="switchTab('goals')">🎯 목표</button>
-    <button class="tab-btn" id="tabVault" onclick="switchTab('vault')">🎫 쿠폰 보관함 <span class="tab-badge" id="vaultBadge" style="display:none">0</span></button>
+    <button class="tab-btn active" id="tabGoals" onclick="switchTab('goals')">🎯 진행 중</button>
+    <button class="tab-btn" id="tabDone" onclick="switchTab('done')">✅ 완료함 <span class="tab-badge" id="doneBadge" style="display:none">0</span></button>
+    <button class="tab-btn" id="tabVault" onclick="switchTab('vault')">🎫 쿠폰 <span class="tab-badge" id="vaultBadge" style="display:none">0</span></button>
   </div>
   <div id="sortBar" class="sort-bar" style="display:flex">
     <span style="font-size:11px;font-weight:700;color:#9ca3af">정렬:</span>
@@ -458,22 +459,29 @@ function todayStr(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function dateOnly(d){
-  // YYYY-MM-DD 형식의 날짜를 자정 기준 ms로 변환 (시간대 오류 방지)
+  if(!d)return 0;
+  if(typeof d!=='string')return 0;
   var parts=d.split('-');
-  return new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2])).getTime();
+  if(parts.length!==3)return 0;
+  var y=parseInt(parts[0]),m=parseInt(parts[1]),day=parseInt(parts[2]);
+  if(isNaN(y)||isNaN(m)||isNaN(day))return 0;
+  var dt=new Date(y,m-1,day);
+  dt.setHours(0,0,0,0);
+  return dt.getTime();
 }
 function checkStreaks(){
-  var today=todayStr();
-  var todayMs=dateOnly(today);
+  var todayMs=dateOnly(todayStr());
   var changed=false;
   goals.forEach(function(g){
-    if(!g.streak||g.completed||g.expired)return;
+    if(!g.streak)return;
+    if(g.completed)return;
     if(!g.lastStampDate)return;
     var lastMs=dateOnly(g.lastStampDate);
-    // 마지막 달성일의 다음날 자정
-    var nextDayMs=lastMs+86400000;
-    // 오늘이 다음날보다 더 뒤면 → 하루 이상 빠진 것 → 실패
-    if(todayMs>nextDayMs){
+    if(lastMs===0)return;
+    // 마지막 달성일과 오늘의 차이 (일 단위)
+    var diffDays=Math.round((todayMs-lastMs)/86400000);
+    // 2일 이상 차이 = 어제 안 한 것 = 실패
+    if(diffDays>=2){
       g.done=0;g.dates=[];g.lastStampDate=null;g.streakCount=0;g.streakFailed=true;
       changed=true;
     }
@@ -541,9 +549,16 @@ function daysLeft(dl){
 function updateVaultBadge(){
   var unused=coupons.filter(function(c){return!c.used;}).length;
   var badge=document.getElementById('vaultBadge');
-  if(!badge)return;
-  if(unused>0){badge.textContent=unused;badge.style.display='inline-block';}
-  else badge.style.display='none';
+  if(badge){
+    if(unused>0){badge.textContent=unused;badge.style.display='inline-block';}
+    else badge.style.display='none';
+  }
+  var doneCount=goals.filter(function(g){return g.completed;}).length;
+  var dBadge=document.getElementById('doneBadge');
+  if(dBadge){
+    if(doneCount>0){dBadge.textContent=doneCount;dBadge.style.display='inline-block';}
+    else dBadge.style.display='none';
+  }
 }
 
 function issueCoupon(goal){
@@ -598,10 +613,12 @@ function dismissBanner(){document.getElementById('installBanner').style.display=
 function switchTab(t){
   currentTab=t;
   document.getElementById('tabGoals').className='tab-btn'+(t==='goals'?' active':'');
+  document.getElementById('tabDone').className='tab-btn'+(t==='done'?' active':'');
   document.getElementById('tabVault').className='tab-btn'+(t==='vault'?' active':'');
-  document.getElementById('catBar').style.display=t==='goals'?'flex':'none';
-  document.getElementById('sortBar').style.display=t==='goals'?'flex':'none';
-  if(t==='goals')renderCatBar();
+  var showFilter=(t==='goals'||t==='done');
+  document.getElementById('catBar').style.display=showFilter?'flex':'none';
+  document.getElementById('sortBar').style.display=showFilter?'flex':'none';
+  if(showFilter)renderCatBar();
   render();
 }
 
@@ -716,15 +733,17 @@ function renderCatBar(){
   var bar=document.getElementById('catBar');
   if(!bar)return;
   bar.innerHTML='';
+  // 현재 탭 기준으로 필터링된 목표만 카운트
+  var scopeGoals=currentTab==='done'?goals.filter(function(g){return g.completed;}):goals.filter(function(g){return !g.completed;});
   var allChip=document.createElement('div');
   allChip.className='cat-chip'+(currentCat==='all'?' active':'');
-  allChip.innerHTML='전체 <span class="cat-count">('+goals.length+')</span>';
+  allChip.innerHTML='전체 <span class="cat-count">('+scopeGoals.length+')</span>';
   allChip.onclick=function(){filterCat('all');};
   bar.appendChild(allChip);
   for(var i=0;i<categories.length;i++){
     (function(catObj){
       var cat=catObj.name;
-      var cnt=goals.filter(function(g){return g.category===cat;}).length;
+      var cnt=scopeGoals.filter(function(g){return g.category===cat;}).length;
       var chip=document.createElement('div');
       chip.className='cat-chip'+(currentCat===cat?' active':'');
       if(currentCat===cat){chip.style.background=catObj.color;chip.style.borderColor=catObj.color;}
@@ -966,6 +985,15 @@ function toggleItem(gid,idx){
     g.completed=true;save();render();issueCoupon(g);
   } else {save();render();}
 }
+function resetStreak(id){
+  showConfirm('연속달성을 처음부터 다시 시작할까요?\n달성 횟수가 초기화돼요.','초기화',true).then(function(ok){
+    if(!ok)return;
+    var g=goals.find(function(x){return x.id===id;});
+    if(!g)return;
+    g.done=0;g.dates=[];g.lastStampDate=null;g.streakCount=0;g.streakFailed=false;
+    save();render();
+  });
+}
 function deleteGoal(id){
   showConfirm('목표를 삭제할까요?','삭제',true).then(function(ok){
     if(!ok)return;
@@ -1006,11 +1034,18 @@ function deleteCoupon(){
 function render(){
   if(currentTab==='vault'){renderVault();return;}
   var grid=document.getElementById('mainContent');
-  if(!goals.length){
-    grid.innerHTML='<div class="empty-state"><span class="big">🌱</span>목표를 추가해서<br>좋은 습관을 만들어보세요!</div>';
+  // 탭별 필터링
+  var tabFiltered;
+  if(currentTab==='done'){tabFiltered=goals.filter(function(g){return g.completed;});}
+  else{tabFiltered=goals.filter(function(g){return !g.completed;});}
+  if(!tabFiltered.length){
+    var msg=currentTab==='done'
+      ?'<div class="empty-state"><span class="big">📭</span>아직 완료한 목표가 없어요.<br>목표를 달성해보세요!</div>'
+      :'<div class="empty-state"><span class="big">🌱</span>목표를 추가해서<br>좋은 습관을 만들어보세요!</div>';
+    grid.innerHTML=msg;
     return;
   }
-  var filteredGoals=currentCat==='all'?goals:goals.filter(function(g){return g.category===currentCat;});
+  var filteredGoals=currentCat==='all'?tabFiltered:tabFiltered.filter(function(g){return g.category===currentCat;});
   filteredGoals=sortGoals(filteredGoals);
   if(!filteredGoals.length){
     grid.innerHTML='<div class="empty-state"><span class="big">🔍</span>이 카테고리에<br>목표가 없어요!</div>';
@@ -1072,7 +1107,7 @@ function render(){
     }
     var cardClass='goal-card'+(isExp?' expired':'')+(isDone?' done-card':'');
     html+='<div class="'+cardClass+'" style="border-top-color:'+cardColor+'">';
-    html+='<div class="card-header"><div class="card-title">'+g.name+'</div><div class="card-actions"><button class="icon-btn" onclick="openModal('+g.id+')">✏️</button><button class="icon-btn del" onclick="deleteGoal('+g.id+')">🗑</button></div></div>';
+    html+='<div class="card-header"><div class="card-title">'+g.name+'</div><div class="card-actions">'+(g.streak&&!g.completed?'<button class="icon-btn" onclick="resetStreak('+g.id+')" title="연속달성 리셋">🔄</button>':'')+'<button class="icon-btn" onclick="openModal('+g.id+')">✏️</button><button class="icon-btn del" onclick="deleteGoal('+g.id+')">🗑</button></div></div>';
     var catBadge=g.category?('<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:#f3f4f6;color:#6b7280">'+g.category+'</span>'):'';
     var streakBadge='';
     if(g.streak&&!g.completed){
