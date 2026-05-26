@@ -475,14 +475,16 @@ function checkStreaks(){
   goals.forEach(function(g){
     if(!g.streak)return;
     if(g.completed)return;
-    if(!g.lastStampDate)return;
-    var lastMs=dateOnly(g.lastStampDate);
+    // dateISOs 마지막 값 사용 (없으면 기존 lastStampDate 호환)
+    var lastDate=null;
+    if(g.dateISOs&&g.dateISOs.length>0)lastDate=g.dateISOs[g.dateISOs.length-1];
+    else if(g.lastStampDate)lastDate=g.lastStampDate;
+    if(!lastDate)return;
+    var lastMs=dateOnly(lastDate);
     if(lastMs===0)return;
-    // 마지막 달성일과 오늘의 차이 (일 단위)
     var diffDays=Math.round((todayMs-lastMs)/86400000);
-    // 2일 이상 차이 = 어제 안 한 것 = 실패
     if(diffDays>=2){
-      g.done=0;g.dates=[];g.lastStampDate=null;g.streakCount=0;g.streakFailed=true;
+      g.done=0;g.dates=[];g.dateISOs=[];g.lastStampDate=null;g.streakCount=0;g.streakFailed=true;
       changed=true;
     }
   });
@@ -527,6 +529,15 @@ function importData(e){
 
 function load(){
   try{var d=localStorage.getItem('hbt-goals-v4');if(d)goals=JSON.parse(d);}catch(e){goals=[];}
+  // 기존 데이터 마이그레이션: lastStampDate -> dateISOs
+  goals.forEach(function(g){
+    if(!g.dateISOs)g.dateISOs=[];
+    // streak 모드이고 lastStampDate가 있는데 dateISOs가 비어있으면 안전을 위해 초기화
+    if(g.streak&&g.lastStampDate&&g.dateISOs.length===0){
+      g.lastStampDate=null; // 안전하게 리셋
+      g.done=0;g.dates=[];g.streakCount=0;
+    }
+  });
   try{var dc=localStorage.getItem('hbt-cats');if(dc)categories=JSON.parse(dc);}catch(e){categories=[];}
   try{var d2=localStorage.getItem('hbt-coupons');if(d2)coupons=JSON.parse(d2);}catch(e){coupons=[];}
   checkExpired();checkStreaks();updateVaultBadge();renderCatBar();render();showInstallBanner();
@@ -884,7 +895,7 @@ function submitGoal(){
     var newG={id:Date.now(),name:name,reward:reward,deadline:deadline,completed:false,expired:false,type:goalType,color:selColor,category:category,streak:useStreak,streakCount:0,lastStampDate:null,streakFailed:false};
     if(goalType==='count'){
       newG.target=Math.min(Math.max(parseInt(document.getElementById('fCount').value)||10,1),100);
-      newG.done=0;newG.emoji=selEmoji;newG.dates=[];
+      newG.done=0;newG.emoji=selEmoji;newG.dates=[];newG.dateISOs=[];
     } else {
       var raw2=document.getElementById('fItems').value.trim();
       if(!raw2){alert('항목을 입력해주세요');return;}
@@ -928,18 +939,21 @@ function stamp(id){
     else{save();render();}
     return;
   }
+  // 연속달성 체크 (자정 넘어간 경우 대비)
+  if(g.streak)checkStreaks();
   var today=todayStr();
-  // 연속달성 모드: 오늘 이미 달성했으면 중복 방지
-  if(g.streak&&g.lastStampDate===today){
+  if(!g.dateISOs)g.dateISOs=[];
+  var lastISO=g.dateISOs.length>0?g.dateISOs[g.dateISOs.length-1]:null;
+  if(g.streak&&lastISO===today){
     showConfirm('오늘은 이미 달성했어요!\n연속달성 모드에서는 하루에 한 번만 가능해요.','확인',false);
     return;
   }
   if(!g.dates)g.dates=[];
   var now=new Date();
   g.dates.push((now.getMonth()+1)+'/'+now.getDate());
+  g.dateISOs.push(today);
   g.done++;
   if(g.streak){
-    g.lastStampDate=today;
     g.streakCount=(g.streakCount||0)+1;
     g.streakFailed=false;
   }
@@ -951,9 +965,9 @@ function unstamp(id){
   if(!g||g.done<=0||g.completed)return;
   g.done--;
   if(g.dates&&g.dates.length>0)g.dates.pop();
+  if(g.dateISOs&&g.dateISOs.length>0)g.dateISOs.pop();
   if(g.streak){
     g.streakCount=Math.max(0,(g.streakCount||1)-1);
-    g.lastStampDate=g.dates&&g.dates.length>0?todayStr():null;
   }
   save();render();
 }
@@ -990,7 +1004,7 @@ function resetStreak(id){
     if(!ok)return;
     var g=goals.find(function(x){return x.id===id;});
     if(!g)return;
-    g.done=0;g.dates=[];g.lastStampDate=null;g.streakCount=0;g.streakFailed=false;
+    g.done=0;g.dates=[];g.dateISOs=[];g.lastStampDate=null;g.streakCount=0;g.streakFailed=false;
     save();render();
   });
 }
